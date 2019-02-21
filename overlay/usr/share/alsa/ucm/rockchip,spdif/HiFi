@@ -1,0 +1,24 @@
+SectionVerb {
+
+	EnableSequence [
+	]
+
+	DisableSequence [
+	]
+}
+
+SectionDevice."SPDIF-stereo" {
+	Comment "SPDIF Digital Stereo Output"
+
+	EnableSequence [
+	]
+
+	DisableSequence [
+	]
+
+	Value {
+		PlaybackPCM "hw:rockchipspdif,0"
+		PlaybackChannels "2"
+		PlaybackPriority "1"
+	}
+}

@@ -1,0 +1,40 @@
+SectionVerb {
+
+	EnableSequence [
+	]
+
+	DisableSequence [
+	]
+}
+
+#SectionDevice."Headphones" {
+#	Comment "Headphones Analog Stereo Output"
+#
+#	EnableSequence [
+#	]
+#
+#	DisableSequence [
+#	]
+#
+#	Value {
+#		PlaybackPCM "hw:rockchiprt5616c,0"
+#		PlaybackChannels "2"
+#		PlaybackPriority "1"
+#	}
+#}
+
+SectionDevice."HDMI-stereo" {
+	Comment "HDMI Digital Stereo Output"
+
+	EnableSequence [
+	]
+
+	DisableSequence [
+	]
+
+	Value {
+		PlaybackPCM "hw:rockchiprt5616c,1"
+		PlaybackChannels "2"
+		PlaybackPriority "2"
+	}
+}

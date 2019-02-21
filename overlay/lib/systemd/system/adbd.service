@@ -1,0 +1,12 @@
+[Unit]
+Description= Adbd for linux
+
+[Service]
+Type=forking
+PIDFile=/var/run/adbd.pid
+ExecStart=/etc/init.d/adbd.sh start
+ExecStop=/etc/init.d/adbd.sh stop
+ExecReload=/etc/init.d/adbd.sh reload
+
+[Install]
+WantedBy=multi-user.target
