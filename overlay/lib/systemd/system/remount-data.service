@@ -1,0 +1,12 @@
+[Unit]
+Description=Remount Data File System
+DefaultDependencies=no
+Requires=data.mount
+After=data.mount
+
+[Service]
+Type=oneshot
+ExecStart=/bin/mount -o remount,ro /data
+
+[Install]
+WantedBy=umount.target
