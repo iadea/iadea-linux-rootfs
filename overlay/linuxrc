@@ -1,17 +1,24 @@
 #!/bin/bash
 
+DEBUG=
+
 backup=
 cache=
+system=
 metadata=
 factory=
 oem=
 userdata=
 
-mopts='noatime,nodiratime,discard,barrier,journal_checksum,data=journal,commit=5,errors=panic'
+rootfstype="$(stat -f -c %T /)"
 
-mount -t sysfs -o 'nodev,noexec,nosuid' sysfs /sys
+ext4_mopts="noatime,nodiratime,commit=5,errors=remount-ro"
+#ext4_mopts="${ext4_mopts},journal_checksum,data=journal"
+#ext4_mopts="${ext4_mopts},discard,barrier"
+
+mount -t sysfs sysfs /sys
 for syspath in /sys/class/block/* ; do
-    part="$(sed -ne 's/^PARTNAME=\(backup\|cache\|metadata\|factory\|oem\|userdata\)$/\1/p;T;q' "${syspath}/uevent")"
+    part="$(sed -ne 's/^PARTNAME=\(backup\|cache\|system\|metadata\|factory\|oem\|userdata\)$/\1/p;T;q' "${syspath}/uevent")"
     if [ "$part" ] ; then
         devpath="/dev/$(basename "${syspath}")"
         eval "${part}=\"\${devpath}\""
@@ -19,54 +26,66 @@ for syspath in /sys/class/block/* ; do
 done
 umount /sys
 
-#for part in backup cache metadata factory oem userdata ; do
-#    eval "devpath=\"\${${part}}\""
-#    echo "linuxrc: ${part}: devpath=${devpath}"
-#done
+if [ "${DEBUG}" ] ; then
+    for part in backup cache system metadata factory oem userdata ; do
+        eval "devpath=\"\${${part}}\""
+        echo "linuxrc: ${part}: devpath=${devpath}"
+    done
+    /bin/bash -i
+fi
     
 if [ -e "${userdata}" ] &&
     (
         fsck.ext4 -p "${userdata}"
-        [ $? -lt 4 ] && mount -t 'ext4' -o "rw,${mopts}" "${userdata}" /data
+        [ $? -lt 4 ] && mount -t 'ext4' -o "rw,${ext4_mopts}" "${userdata}" /data
     ) || (
         fsck.ext4 -f -y "${userdata}"
-        [ $? -lt 4 ] && mount -t 'ext4' -o "rw,${mopts}" "${userdata}" /data
+        [ $? -lt 4 ] && mount -t 'ext4' -o "rw,${ext4_mopts}" "${userdata}" /data
     ) || (
         mkfs.ext4 -F "${userdata}"
-        [ $? -eq 0 ] && mount -t 'ext4' -o "rw,${mopts}" "${userdata}" /data
+        [ $? -eq 0 ] && mount -t 'ext4' -o "rw,${ext4_mopts}" "${userdata}" /data
     )
 then
-    rm -rf /data/overlay/linux-work
-    mkdir -p /data/overlay/{linux,linux-work}
-    mount --bind / /boot
-    if mount -t 'overlay' -o 'lowerdir=/boot,upperdir=/data/overlay/linux,workdir=/data/overlay/linux-work' overlay /boot ; then
-        cd /boot
-        if pivot_root . boot ; then
-            mount --move /boot/data /data
-            mount --move /boot/dev /dev
-            umount /boot/boot
-
-            for part in backup cache metadata factory ; do
-                eval "devpath=\"\${${part}}\""
-                if [ -e "${devpath}" ] ; then
-                    mkdir -p "/.android/${part}" &&
-                    mount -t 'ext4' -o "ro,${mopts}" "${devpath}" "/.android/${part}"
-                fi
-            done
-
-            if [ -e "${oem}" ] ; then
-                mkdir -p '/oem' &&
-                mount -t 'squashfs' -o 'defaults' "${oem}" '/oem'
+    if [ "${rootfstype}" = 'squashfs' ] ; then
+        rm -rf /data/overlay/linux-work
+        mkdir -p /data/overlay/{linux,linux-work}
+        mount --bind / /boot
+        if mount -t 'overlay' -o 'lowerdir=/boot,upperdir=/data/overlay/linux,workdir=/data/overlay/linux-work' overlay /boot ; then
+            cd /boot
+            if pivot_root . boot ; then
+                mount --move /boot/data /data
+                mount --move /boot/dev /dev
+                umount /boot/boot
+                #XXX: systemctl mask data.mount
+                ln -fs /dev/null /etc/systemd/system/data.mount
+            else
+                cd /
+                umount /boot
             fi
-
-            exec chroot . /sbin/init
+        else
+            umount /boot
         fi
-        cd /
-        umount /boot
     fi
-    umount /boot
 fi
-#umount /data
 
-#bash -i
-exec /sbin/init
+if [ "${rootfstype}" = 'ext4' -a -e "${system}" ] ; then
+    mount -t proc proc /proc
+    resize2fs "${system}"
+    mount -o "remount,${ext4_mopts}" "${system}"
+    umount /proc
+fi
+
+for part in backup cache metadata factory ; do
+    eval "devpath=\"\${${part}}\""
+    if [ -e "${devpath}" ] ; then
+        mkdir -p "/.android/${part}" &&
+        mount -t 'ext4' -o "ro,${ext4_mopts}" "${devpath}" "/.android/${part}"
+    fi
+done
+
+if [ -e "${oem}" ] ; then
+    mkdir -p '/oem' &&
+    mount -t 'squashfs' "${oem}" '/oem'
+fi
+
+exec chroot . /sbin/init
