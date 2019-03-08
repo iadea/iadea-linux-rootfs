@@ -1,5 +1,5 @@
 [Unit]
-Description= Adbd for linux
+Description=Adbd for Linux
 
 [Service]
 Type=forking
