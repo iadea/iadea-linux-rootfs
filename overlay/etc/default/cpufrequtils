@@ -1,0 +1,2 @@
+GOVERNOR="ondemand"
+MIN_SPEED="1200000"

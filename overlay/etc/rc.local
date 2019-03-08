@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/sh
 #
 # rc.local
 #
@@ -11,11 +11,53 @@
 #
 # By default this script does nothing.
 
-# Generate the SSH keys if non-existent
-ssh-keygen -A
+DESC="$1"
 
+# CPU frequencies are set by /etc/init.d/cpufrequtils and /etc/default/cpufrequtils
+GPU_GOVERNOR="performance"
+DMC_GOVERNOR="performance"
+
+# use lsb-base
+. /lib/lsb/init-functions
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# Generate the SSH keys if non-existent
+log_action_begin_msg "$DESC: Generating SSH keys"
+ssh-keygen -A
+RETVAL=$?
+log_action_end_msg $RETVAL
+
+# Set GPU frequencies
+log_action_begin_msg "$DESC: Setting $GPU_GOVERNOR GPU governor"
+gpu_governor_file="/sys/class/devfreq/ffa30000.gpu/governor"
+if [ -f $gpu_governor_file ] ; then
+    echo "$GPU_GOVERNOR" > $gpu_governor_file
+    RETVAL=$?
+else
+    log_action_cont_msg "disabled, governor not available"
+    RETVAL=0
+fi
+log_action_end_msg $RETVAL
+
+# Set DMC frequencies
+log_action_begin_msg "$DESC: Setting $DMC_GOVERNOR DMC governor"
+dmc_governor_file="/sys/class/devfreq/dmc/governor"
+if [ -f $dmc_governor_file ] ; then
+    echo "$DMC_GOVERNOR" > $dmc_governor_file
+    RETVAL=$?
+else
+    log_action_cont_msg "disabled, governor not available"
+    RETVAL=0
+fi
+log_action_end_msg $RETVAL
+
+# Load OEM script
 if [ -x /oem/etc/rc.local ] ; then
+    [ "$VERBOSE" != no ] && log_action_begin_msg "Running OEM scripts (/oem/etc/rc.local)"
     /oem/etc/rc.local
+    RETVAL=$?
+    [ "$VERBOSE" != no ] && log_action_end_msg $RETVAL
 fi
 
 exit 0
